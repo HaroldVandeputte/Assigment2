@@ -14,15 +14,19 @@ public class ChatServer
    public ChatServer(int port) {  
 	   try {
 		   server = new ServerSocket(port);  
+		   System.out.println("Connection made.");
 		   socket = server.accept();
+		   System.out.println("Client accepted");
 		   DataInputStream streamIn = open(socket);
 		   
 		   boolean done = false;
 		   while (!done) {  
 			   try {  
+				   System.out.println("Print voor readUTF");
 				   String line = streamIn.readUTF();
+				   System.out.println("print na UTF");
 				   System.out.println(line);
-				   try (Writer request = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("filename.txt"), "utf-8"))) {
+				   try (Writer request = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("request.txt"), "utf-8"))) {
 				   request.write(line + '\n');
 				}
 				   done = line.equals(".bye");
@@ -31,11 +35,16 @@ public class ChatServer
 				   done = true;
 			   }
 		   }
+		   System.out.println("Close!");
 		   close();
 		   }
 	   catch(IOException ioe) {  
 		   System.out.println(ioe); 
 	   }
+   }
+   
+   public void readInput() {
+	   
    }
    
    

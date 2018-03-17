@@ -67,6 +67,7 @@ public class ChatClient {
 // 2 - Open an input stream and output stream to the socket.
 		    output = new PrintWriter(clientSocket.getOutputStream(), true);
 		    inStream = clientSocket.getInputStream();
+		    System.out.println("connected");
 		}catch(UnknownHostException uhe){
 			System.out.println("Host unknown: " + uhe.getMessage());
 		}
@@ -79,6 +80,7 @@ public class ChatClient {
 		switch (HTTPMethod) {
 			case("GET"):
 				request = getHTTP1Request("GET", path, hostServer, portNumber, false);
+				System.out.println("request formed");
 				break;
 			case("HEAD"):
 				request = getHTTP1Request("HEAD", path, hostServer, portNumber, false);
@@ -98,7 +100,9 @@ public class ChatClient {
 /* 3 - Read from and write to the stream according to the server's protocol. */
 		
 		/* Send to server */
+		System.out.println(request);
 		output.println(request);
+		System.out.println("request send");
 		/**
 		 * Retrieve the input line per line and build the response.
 		 * Print the response in the terminal
@@ -290,6 +294,7 @@ public class ChatClient {
 	public static void main(String args[]) throws Exception{  
 		ChatClient chatClient = null;
 		URI uri = new URI(args[1]);
+		System.out.println(uri);
 	    try{
 	    	chatClient = new ChatClient(args[0],uri, Integer.parseInt(args[2]));
 	    }
