@@ -31,6 +31,7 @@ public class ChatClient {
 	//BufferedReader inBuf = null;
 	PrintWriter output = null;
 	FileOutputStream fos = null;
+	List<String> allImages = new ArrayList<String>();
 
 	//PrintWriter writer = new PrintWriter("file.html", "UTF-8");
 
@@ -54,7 +55,7 @@ public class ChatClient {
 		String path = uri.getPath();
 		int portNumber = port;
 		String HTTPMethod = HTTPcommand;
-		List<String> allImages = new ArrayList<String>();
+		String body = "";
 
 
 		/*********************************************************************************
@@ -79,15 +80,19 @@ public class ChatClient {
 		String request = "";
 		switch (HTTPMethod) {
 		case("GET"):
-			request = getHTTP1Request("GET", path, hostServer, portNumber, false);
+			request = getHTTP1Request("GET", path, hostServer, portNumber, "");
 		break;
 		case("HEAD"):
-			request = getHTTP1Request("HEAD", path, hostServer, portNumber, false);
+			request = getHTTP1Request("HEAD", path, hostServer, portNumber, "");
 		break;
 		case("PUT"):
-			//TODO
+			body = getUserInput();
+		request = getHTTP1Request("PUT", path, hostServer, portNumber, body);
+		break;
 		case("POST"):
-			//TODO
+			body = getUserInput();
+		request = getHTTP1Request("POST", path, hostServer, portNumber, body);
+		break;
 		default: throw new IllegalArgumentException("Invalid HTTP method (for this assignment)" + HTTPMethod);
 		}
 
@@ -97,128 +102,21 @@ public class ChatClient {
 		 ********************************************************************************/		
 
 		/* 3 - Read from and write to the stream according to the server's protocol. */
-
 		/* Send to server */
 		output.println(request);
-		/**
-		 * Retrieve the input line per line and build the response.
-		 * Print the response in the terminal
-		 * Save the response in the file : file.html
-		 */
-		byte[] b = new byte[1024]; // 1 kB read blocks.
-		/* Depending on the http-method the amount of ending bytes will be different */
-		/* GET - 2 times (head and body); HEAD - 1 time (head) */
-		int  count = 0;
-		fos = new FileOutputStream("file.html"); //file to store the data
-		int i = 0;
-		int test = 0;
+		/* Retrieve from server */
+		readResponse(HTTPMethod, -1,  true);
 
-		while((i = inStream.read(b)) != -1){
-			/* Reads 1024 numbers of bytes from the input stream and stores them 
-			 * into the buffer array b.
-			 */
-			String str = new String(b, StandardCharsets.UTF_8);// transform to string
-			System.out.println(str); 
+		/* If there are images then send request for them again */
+		String pathImage = changePathForImage(path);
+		for(int k = 0; k < allImages.size(); k++){
+			String newPath = pathImage + allImages.get(k);
+			String newRequest = getHTTP1Request("GET",newPath,hostServer,portNumber,"");
+			output.println(newRequest);
+			readResponse("GET",k,false);
 
-			// Looking for images
-			if(str.contains("img")){
-				String src = getSrc(str);
-				allImages.add(src);
-			}
-
-			fos.write(b, 0, i);
-
-			if(b[i-1] ==  10){
-				/*System.out.println(b[i-4]);
-	    		System.out.println(b[i-3]);
-	    		System.out.println(b[i-2]);
-	    		System.out.println(b[i-1]);*/
-				count ++; // '10' shows the end of the HEAD of the BODY
-			}
-			//if(count == 2 && HTTPMethod.equals("GET") ) break;
-			if(count == 1 && HTTPMethod.equals("HEAD") ) break;
-		}
-		if (fos 				!= null)  fos.close(); // Close the stream for later uses
-		/**
-	    /* Download all images 
-	    String pathImage = changePathForImage(path);
-	    for(int k = 0; k < allImages.size(); k++){
-	    	boolean headerFound = false;
-	    	String newPath = pathImage + allImages.get(k);
-	    	String newRequest = getHTTP1Request("GET",newPath,hostServer,portNumber, true);
-	    	output.println(newRequest);
-	    	String fileName = "img" + k + ".jpg";
-	    	fos = new FileOutputStream(fileName);
-	    	long t= System.currentTimeMillis();
-	    	long end = t+3000;
-	    	while((System.currentTimeMillis() < end) ||(i = inStream.read(b)) != -1){
-
-		    	if(headerFound) fos.write(b, 0, i);
-		    	// This locates the end of the header by comparing the current byte as well as the next 3 bytes
-		        // with the HTTP header end "\r\n\r\n" (which in integer representation would be 13 10 13 10).
-		        // If the end of the header is reached, the flag is set to true and the remaining data in the
-		        // currently buffered byte array is written into the file.
-		    	if(b[i-1] ==  10 && b[i-2] ==  13 && b[i-3] ==  10 && b[i-4] ==  13) headerFound = true;
-		    }
-	    	System.out.println("check");
-	    	if (fos 				!= null)  fos.close();
-	    }
-		 **/
-
-
-
-
-		/**
-	    int inputLine = in.read();
-		System.out.println(inputLine);
-		while(in.ready()){
-			inputLine = in.readLine();
-			if(inputLine.contains("img")){
-				String src = getSrc(inputLine);
-				allImage[allImage.length] = src;
-			}
-			System.out.println(inputLine);
-
-		}	
-
-
-		// get all images
-		String pathImage = changePathFotImage(path);
-		for(String img: allImage){
-			String newPath = pathImage + img;
-			request = getHTTP1Request("GET", newPath, hostServer, portNumber);
-			output.println(request);
-
-			// Initialize the streams.
-			final FileOutputStream fileOutputStream = new FileOutputStream("image.jpg");
-			// Header end flag.
-		    boolean headerEnded = false;
-
-		    byte[] bytes = new byte[2048];
-		    int length;
-		    while ((length = in.read(bytes)) != -1) {
-		        // If the end of the header had already been reached, write the bytes to the file as normal.
-		        if (headerEnded)
-		            fileOutputStream.write(bytes, 0, length);
-
-		        // This locates the end of the header by comparing the current byte as well as the next 3 bytes
-		        // with the HTTP header end "\r\n\r\n" (which in integer representation would be 13 10 13 10).
-		        // If the end of the header is reached, the flag is set to true and the remaining data in the
-		        // currently buffered byte array is written into the file.
-		        else {
-		            for (int i = 0; i < 2045; i++) {
-		                if (bytes[i] == 13 && bytes[i + 1] == 10 && bytes[i + 2] == 13 && bytes[i + 3] == 10) {
-		                    headerEnded = true;
-		                    fileOutputStream.write(bytes, i+4 , 2048-i-4);
-		                    break;
-		                }
-		            }
-		        }
-		    }
-		    fileOutputStream.close();
 		}
 
-		 **/
 
 		/*********************************************************************************
 		 * 	CONNECTION CLOSED
@@ -229,19 +127,121 @@ public class ChatClient {
 
 
 	/*********************************************************************************
+	 * 	Read Response
+	 ********************************************************************************/
+
+	public void readResponse(String HTTPMethod, int imageNum, boolean findImages) throws IOException{
+		/**
+		 * Retrieve the input line per line and build the response.
+		 * Print the response in the terminal
+		 * Save the response in the file : file.html
+		 */
+		byte[] b = new byte[1024]; // 1kb reading blocks.
+		if(imageNum != -1){
+			fos = new FileOutputStream("image" + imageNum + ".jpg");
+		}else fos = new FileOutputStream("file.html"); //file to store the data
+		int i = 0;
+		boolean next = true;
+		int contentLength = 0;
+		boolean headerEnded = false;
+		int CONTENTLENGTH = 0;
+		/* Read the input of server and write to file.html */
+		try{
+			while(next){
+				/* Reads 1 byte from the input stream and stores it 
+				 * into the buffer array b.
+				 */
+
+				i = inStream.read(b);
+				String str = new String(b, StandardCharsets.UTF_8);// transform to string
+				if(imageNum == -1) System.out.print(str);
+				/* Looking for images */
+				if(str.contains("img") && findImages && HTTPMethod.equals("GET")){
+					String src = getSrc(str);
+					if(!src.equals(" ")) allImages.add(src);
+				}
+				if(!headerEnded){
+					{
+						CONTENTLENGTH = getContentLength(str);
+						for (int k = 0; k < 1024; k++) {
+							if (b[k] == 13 && b[k+ 1] == 10 && b[k + 2] == 13 && b[k + 3] == 10) {
+								headerEnded = true;
+								contentLength += i-k-3;
+								if(imageNum >=0) b = Arrays.copyOfRange(b, k+3, b.length-1);
+								break;
+							}
+						}
+						if(HTTPMethod.equals("HEAD")) next = false;
+					}
+				}else{
+					contentLength += i;
+					if(b[i-1]==10 && contentLength >= CONTENTLENGTH){
+						next = false;
+					}
+				}
+
+				fos.write(b, 0, i);
+			}
+		}catch(IOException exc){
+			String str = new String(b, StandardCharsets.UTF_8);// transform to string
+			System.out.print(str);
+			fos.write(b, 0, i);
+		}
+		if (fos 				!= null)  fos.close(); // Close the stream for later uses
+
+	}
+
+
+	/*********************************************************************************
 	 * 	HELP FUNCTIONS
 	 ********************************************************************************/
 
-	public String getHTTP1Request(String method, String path, String host, int portNumber, boolean image){
+	public String getUserInput() throws IOException{
+		BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
+		String input = "";
+		String body = "";
+		System.out.println("Give input for the body, write 'bye' to stop:  " + '\n');
+		input = userInput.readLine();
+		while(!input.equals("bye")){
+			body += input + '\n';
+			input = userInput.readLine();
+		}
+		userInput.close();
+		return body;
+	}
+	
+	/**
+	 * Form the HTTP request that forfills version 1.1
+	 * @param method
+	 * 			
+	 * @param path
+	 * @param host
+	 * @param portNumber
+	 * @param body
+	 * @return
+	 */
+	public String getHTTP1Request(String method, String path, String host, int portNumber, String body){
+		// resulting request
 		String request = "";
 		// method = first line of the HTTP request 
 		String methodLine = "";
 		// host = second line of the HTTP request
 		String hostLine= "";
+		// Content-Length = how many bytes the body contains
+		String contentLength = "Content-Length: ";
+		// Content-Type = type of the content
+		String contentType = "Content-Type: text/txt";
 		methodLine =  method+ " " + path + " HTTP/1.1";
 		hostLine = "Host:" + host + ":" + portNumber;
 		// Form the request
-		request = methodLine + '\n' + hostLine + '\r' + '\n';
+		if(method.equals("GET") || method.equals("HEAD")){
+			request = methodLine + '\n' + hostLine + '\r' + '\n';
+		}else{
+			int amountOfBytes = body.getBytes().length;
+			contentLength += amountOfBytes;
+			request = methodLine + '\n' + hostLine + '\n' + contentLength +'\n' + 
+					contentType + '\r' + '\n' + '\r' + '\n' + body;
+		}
 		return request;
 	}
 
@@ -256,7 +256,7 @@ public class ChatClient {
 				found = true;
 			}
 		}
-		return "";
+		return " ";
 	}
 
 	public String changePathForImage(String path){
@@ -268,8 +268,25 @@ public class ChatClient {
 		return result;
 	}
 
-	public void downloadImage(String src, String host, String path, int portNumber) throws FileNotFoundException{
+	public int getContentLength(String str){
+		String result = "";
+		boolean found = false;
+		String[] strArray = str.split(" ", 40);
+		for(String i : strArray){
 
+			if(found){
+				byte[] bytes = i.getBytes();
+				for(byte b :bytes){
+					if(b == 13){
+						return Integer.parseInt(result);
+					}
+					byte[] subresult = {b};
+					result = result+ new String(subresult, StandardCharsets.UTF_8);
+				}
+			}
+			if(i.contains("Content-Length:")) found = true;
+		}
+		return 0;
 	}
 
 	/**
@@ -278,7 +295,7 @@ public class ChatClient {
 	public void stop(){  
 		try{   
 			if (output 			!= null)  output.close();
-			if (inStream 		  		!= null)  inStream.close();
+			if (inStream 		!= null)  inStream.close();
 			if (clientSocket    != null)  clientSocket.close();
 			//if (writer			!= null) writer.close();
 		}
