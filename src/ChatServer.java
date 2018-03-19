@@ -132,8 +132,7 @@ public class ChatServer {
 		//System.out.println("GET");
 		String header = getHeader(ok200());
 		output.println(header);
-		InputStream in = this.getClass().getClassLoader()
-	            .getResourceAsStream("example.html");
+		InputStream in = this.getClass().getClassLoader().getResourceAsStream("Assignment2.html");
 	    String s = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n"));
 	    output.println(s);
 	}
