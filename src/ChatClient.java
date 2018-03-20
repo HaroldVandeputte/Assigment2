@@ -1,14 +1,24 @@
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.awt.Image;
+import java.awt.image.*;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.FileImageOutputStream;
+import javax.imageio.stream.ImageOutputStream;
+
+import java.util.*;
 import java.io.*;
+import org.jsoup.*;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 /**
  * 
  * @author Jonas Wittouck
  * @author Harold Vandeputte
+ * @version 1.0
  *
  */
 public class ChatClient {
@@ -18,22 +28,21 @@ public class ChatClient {
 	 * 			VARIABLES
 	 ********************************************************************************/
 
-	/**
+	/*
 	 * Initialize variables for the connection
 	 * 
 	 * clientSocket: a connection is made through the socket
-	 * in: reads the response of the server
+	 * inStream: reads the response of the server
 	 * output: sends data through the socket to the server
-	 * writer: writes data to the file file.html so it is saved
+	 * fos: writes data to a file
+	 * allImages: contains all sources of the images that the html file contains
 	 */
 	Socket clientSocket = null;
 	InputStream inStream = null;
-	//BufferedReader inBuf = null;
+	InputStreamReader inImage = null;
 	PrintWriter output = null;
 	FileOutputStream fos = null;
 	List<String> allImages = new ArrayList<String>();
-
-	//PrintWriter writer = new PrintWriter("file.html", "UTF-8");
 
 
 	/*********************************************************************************
@@ -42,14 +51,14 @@ public class ChatClient {
 
 	private ChatClient(String HTTPcommand, URI uri, int port) throws Exception{
 
-		/**
+		/*
 		 * Initialize variables
 		 * 
 		 * hostServer = servers identity
 		 * path = path of the URI
 		 * portNumber = port to with the server/client should listen to
 		 * HTTPMethod = HTTP method 
-		 * in = BufferReader for this socket
+		 * body = body used for PUT and POST HTTP method
 		 */
 		String hostServer = uri.getHost();
 		String path = uri.getPath();
@@ -66,9 +75,8 @@ public class ChatClient {
 			// 1 - Open socket to make a connection.
 			clientSocket = new Socket(hostServer, portNumber);
 
-			// 2 - Open an input stream and output stream to the socket.
+			// 2 - Open an output stream to the socket.
 			output = new PrintWriter(clientSocket.getOutputStream(), true);
-			inStream = clientSocket.getInputStream();
 		}catch(UnknownHostException uhe){
 			System.out.println("Host unknown: " + uhe.getMessage());
 		}
@@ -76,7 +84,7 @@ public class ChatClient {
 			System.out.println("Unexpected exception: " + ioe.getMessage());
 		}
 
-		// Form the request dependend on with method is given
+		// Form the request depended on witch method is given
 		String request = "";
 		switch (HTTPMethod) {
 		case("GET"):
@@ -96,7 +104,6 @@ public class ChatClient {
 		default: throw new IllegalArgumentException("Invalid HTTP method (for this assignment)" + HTTPMethod);
 		}
 
-
 		/*********************************************************************************
 		 * 	READ AND WRITE
 		 ********************************************************************************/		
@@ -105,15 +112,42 @@ public class ChatClient {
 		/* Send to server */
 		output.println(request);
 		/* Retrieve from server */
-		readResponse(HTTPMethod, -1,  true);
+		readResponse(HTTPMethod);
+		/* Search for all the sources of the existing images */
+		if(HTTPMethod.equals("GET")){
+			try {
+				//Connect to the website and get the html
+				String uriJsoup = uri.toString();
+				Document doc = Jsoup.connect(uriJsoup).get();
+				//Get all elements with image tag ,
+				Elements img = doc.getElementsByTag("img");
 
-		/* If there are images then send request for them again */
-		String pathImage = changePathForImage(path);
-		for(int k = 0; k < allImages.size(); k++){
-			String newPath = pathImage + allImages.get(k);
-			String newRequest = getHTTP1Request("GET",newPath,hostServer,portNumber,"");
-			output.println(newRequest);
-			readResponse("GET",k,false);
+				String pathImage = changePathForImage(path);
+				int imgNum = 0;
+				/* If there are images then send a separate request for them again */
+				for (Element el : img) {
+					String src = el.absUrl("src");// http://host/path
+
+					//Extract the name of the image from the src attribute
+					int indexName = src.lastIndexOf("/");
+					if (indexName == src.length()) {
+						src = src.substring(0, indexName);
+					}
+					indexName = src.lastIndexOf("/");
+					String name = src.substring(indexName, src.length());
+					int indexType = src.lastIndexOf(".");
+					String type = src.substring(indexType+1,src.length());
+					String newPath = pathImage + name; // form the correct path
+					String newRequest = getHTTP1Request("GET",newPath,hostServer,portNumber,"");// form the correct request
+					System.out.println('\n');
+					System.out.println(newRequest);
+					output.println(newRequest); // send request to server
+					downloadImage(imgNum,type); // download/save the image
+					imgNum ++;
+				}
+			} catch (IOException ex) {
+				System.err.println("There was an error");
+			}
 
 		}
 
@@ -121,6 +155,7 @@ public class ChatClient {
 		/*********************************************************************************
 		 * 	CONNECTION CLOSED
 		 ********************************************************************************/
+
 		// 4 - Close the streams and socket
 		stop();
 	}
@@ -130,56 +165,77 @@ public class ChatClient {
 	 * 	Read Response
 	 ********************************************************************************/
 
-	public void readResponse(String HTTPMethod, int imageNum, boolean findImages) throws IOException{
-		/**
-		 * Retrieve the input line per line and build the response.
+	/**
+	 * Reads the response of the server and saves the response in a seperate file.
+	 * @param HTTPMethod:
+	 * 			Method used in the HTTP request
+	 * @param imageNum
+	 * 			== -1 if no images are asked
+	 * 			>=0 if it is a request for a images that should be saved in "img<imageNum>.<type>"
+	 * @param type
+	 * 		type is given if the request is for an image, otherwise type == ""
+	 * @throws IOException
+	 */
+	public void readResponse(String HTTPMethod) throws IOException{
+		/* Open all connection to read the response */
+		try{
+			fos = new FileOutputStream("file.html"); //file to store the data
+			inStream = clientSocket.getInputStream(); // start an InputStream
+		}catch(IOException ioe){  
+			System.out.println("Unexpected exception: " + ioe.getMessage());
+		}
+
+		/*
+		 * Retrieve the input in blocks of 1kb.
 		 * Print the response in the terminal
 		 * Save the response in the file : file.html
 		 */
 		byte[] b = new byte[1024]; // 1kb reading blocks.
-		if(imageNum != -1){
-			fos = new FileOutputStream("image" + imageNum + ".jpg");
-		}else fos = new FileOutputStream("file.html"); //file to store the data
 		int i = 0;
 		boolean next = true;
-		int contentLength = 0;
+		int contentLength = 0;// keeps up how much there has bean read
 		boolean headerEnded = false;
-		int CONTENTLENGTH = 0;
+		int CONTENTLENGTH = 0;// Will be the content length of the total body
 		/* Read the input of server and write to file.html */
 		try{
 			while(next){
-				/* Reads 1 byte from the input stream and stores it 
+				/* Reads i bytes from the input stream and stores it 
 				 * into the buffer array b.
 				 */
-
 				i = inStream.read(b);
-				String str = new String(b, StandardCharsets.UTF_8);// transform to string
-				if(imageNum == -1) System.out.print(str);
-				/* Looking for images */
-				if(str.contains("img") && findImages && HTTPMethod.equals("GET")){
-					String src = getSrc(str);
-					if(!src.equals(" ")) allImages.add(src);
+				if(i == -1){ // return is -1 if the stream ended
+					break;
 				}
+				String str = new String(b, StandardCharsets.UTF_8);// transform to string
+				//System.out.print(str);
 				if(!headerEnded){
-					{
-						CONTENTLENGTH = getContentLength(str);
-						for (int k = 0; k < 1024; k++) {
-							if (b[k] == 13 && b[k+ 1] == 10 && b[k + 2] == 13 && b[k + 3] == 10) {
-								headerEnded = true;
-								contentLength += i-k-3;
-								if(imageNum >=0) b = Arrays.copyOfRange(b, k+3, b.length-1);
-								break;
-							}
-						}
-						if(HTTPMethod.equals("HEAD")) next = false;
+					if((CONTENTLENGTH = getContentLength(str))==0){
+						System.out.println('\n' + "HTTP response does not contain Content-Length!");
+						break;
 					}
-				}else{
+					for (int k = 0; k < 1024; k++) {
+						// This locates the end of the header by comparing the current byte as well as the next 3 bytes
+						// with the HTTP header end "\r\n\r\n" (which in integer representation would be 13 10 13 10).
+						// If the end of the header is reached, the flag is set to true and the remaining data in the
+						// currently buffered byte will be counted with the content length that has already been read.
+						if (b[k] == 13 && b[k+ 1] == 10 && b[k + 2] == 13 && b[k + 3] == 10) {
+							headerEnded = true;
+							contentLength += i-k-3;
+							if(HTTPMethod.equals("HEAD")) next = false;
+							break;
+
+						}
+					}
+				}
+				else{
 					contentLength += i;
+					// If the last byte read is equal to 10 (or '\n') and the content length has
+					// been reached then the input stream has reached the end of the response.
+					// The flag 'next' is set to false to stop reading.
 					if(b[i-1]==10 && contentLength >= CONTENTLENGTH){
 						next = false;
 					}
 				}
-
 				fos.write(b, 0, i);
 			}
 		}catch(IOException exc){
@@ -187,8 +243,82 @@ public class ChatClient {
 			System.out.print(str);
 			fos.write(b, 0, i);
 		}
-		if (fos 				!= null)  fos.close(); // Close the stream for later uses
 
+		// Close all open connections made
+		try{
+			if (fos 				!= null)  fos.close();
+			//if (inStream 			!= null)  inStream.close();
+		}
+		catch(IOException ioe){ 
+			System.out.println("Error closing ...");
+		}
+
+	}
+
+	public void downloadImage(int imageNum,String type) throws IOException{
+		String fileName = "image" + imageNum + "." + type;	
+		OutputStreamWriter imageFile = null;
+		try {
+			inImage = new InputStreamReader(clientSocket.getInputStream(),"ISO-8859-1");
+			imageFile = new OutputStreamWriter(new FileOutputStream(fileName),"ISO-8859-1");
+		}catch(IOException ioe){  
+			System.out.println("Unexpected exception: " + ioe.getMessage());
+		}
+		/*
+		 * Retrieve the input in blocks of 1kb.
+		 * Print the response in the terminal
+		 * Save the response in the file : file.html
+		 */
+		List<Integer> last4Readings = new ArrayList<Integer>();
+		for (int i = 0; i < 4; i++) {
+			last4Readings.add(0);
+		}
+		int ch = 0;
+		Integer integer = null;
+		boolean next = true;
+		boolean headerEnded = false;
+		/* Read the input of server and write to file.html */
+		try{
+			while(next){
+				/* Reads i bytes from the input stream and stores it 
+				 * into the buffer array b.
+				 */
+				ch = inImage.read();
+				if(ch == -1){ // return is -1 if the stream ended
+					System.out.print('\n'+"quit");
+					break;
+				}
+				integer = new Integer(ch);
+				last4Readings.add(integer);
+				last4Readings.remove(0);
+
+				if(!headerEnded){
+					// This locates the end of the header by comparing the current byte as well as the next 3 bytes
+					// with the HTTP header end "\r\n\r\n" (which in integer representation would be 13 10 13 10).
+					// If the end of the header is reached, the flag is set to true and the remaining data in the
+					// currently buffered byte will be counted with the content length that has already been read.
+					if(last4Readings.get(0)==13 && last4Readings.get(1)==10 && last4Readings.get(2)==13 && last4Readings.get(3)==10){
+						headerEnded = true;
+						System.out.print('\n'+"check Header");
+					}
+				}
+				else{
+					imageFile.write(ch);
+				}
+			}
+		}catch(IOException exc){
+			System.out.println('\n'+ "Could not download the image." + "\n");
+		}
+
+		// Close all open connections made
+		try{
+			if (inImage 				!= null) inImage.close();
+			if (imageFile 				!= null) imageFile.close();
+
+		}
+		catch(IOException ioe){ 
+			System.out.println("Error closing ...");
+		}
 	}
 
 
@@ -196,36 +326,33 @@ public class ChatClient {
 	 * 	HELP FUNCTIONS
 	 ********************************************************************************/
 
+
+	/**
+	 * Gets the users input
+	 */
 	public String getUserInput() throws IOException{
 		BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
 		String input = "";
 		String body = "";
 		System.out.println("Give input for the body, write 'bye' to stop:  " + '\n');
 		input = userInput.readLine();
-		while(!input.equals("bye")){
+		while(!input.equals("bye")){ //stop if user returns "bye"
 			body += input + '\n';
 			input = userInput.readLine();
 		}
 		userInput.close();
 		return body;
 	}
-	
+
 	/**
-	 * Form the HTTP request that forfills version 1.1
-	 * @param method
-	 * 			
-	 * @param path
-	 * @param host
-	 * @param portNumber
-	 * @param body
-	 * @return
+	 * Form the HTTP request that fulfills version 1.1
 	 */
 	public String getHTTP1Request(String method, String path, String host, int portNumber, String body){
-		// resulting request
+		// Resulting request
 		String request = "";
-		// method = first line of the HTTP request 
+		// methodLine = first line of the HTTP request 
 		String methodLine = "";
-		// host = second line of the HTTP request
+		// hostLine = second line of the HTTP request
 		String hostLine= "";
 		// Content-Length = how many bytes the body contains
 		String contentLength = "Content-Length: ";
@@ -240,48 +367,54 @@ public class ChatClient {
 			int amountOfBytes = body.getBytes().length;
 			contentLength += amountOfBytes;
 			request = methodLine + '\n' + hostLine + '\n' + contentLength +'\n' + 
-					contentType + '\r' + '\n' + '\r' + '\n' + body;
+					contentType + '\r' + '\n' + '\r' + '\n' + body; // \r\n\r\n is the end of the header
 		}
 		return request;
 	}
 
+	/**
+	 * Looks for the source of the image in the line.
+	 */
 	public String getSrc(String line){
 		boolean found = false;
-		String[] splitLine = line.split("\"");
+		String[] splitLine = line.split("\"");//split string where there is a ' " '
 		for(String i : splitLine){
 			if(found){
 				return i;
 			}
-			if (i.contains("src")){
+			if (i.contains("src") || i.contains("SRC")){// if the string is src then return the next string in the row
 				found = true;
 			}
 		}
 		return " ";
 	}
 
+	/**
+	 * Cuts the last piece of the path away so the image-file name can be added later to 
+	 * make the request.
+	 */
 	public String changePathForImage(String path){
-		String result = "";
-		String[] srcArray = path.split("(?<=/)");
-		for(int i = 0; i < (srcArray.length -1); i++){
-			result = result + srcArray[i];
-		}
+		int lastIndex = path.lastIndexOf("/");
+		String result = path.substring(0,lastIndex);
 		return result;
 	}
 
+	/**
+	 * Returns the content length in bytes. Return 0 if something went wrong
+	 */
 	public int getContentLength(String str){
 		String result = "";
 		boolean found = false;
-		String[] strArray = str.split(" ", 40);
+		String[] strArray = str.split(" ", 40);// splits string with " "
 		for(String i : strArray){
-
 			if(found){
 				byte[] bytes = i.getBytes();
 				for(byte b :bytes){
-					if(b == 13){
+					if(b == 13){ //if we are in the line of the content length that add the bytes until byte 13(== next line)
 						return Integer.parseInt(result);
 					}
 					byte[] subresult = {b};
-					result = result+ new String(subresult, StandardCharsets.UTF_8);
+					result = result+ new String(subresult, StandardCharsets.UTF_8);// add everything together one by one
 				}
 			}
 			if(i.contains("Content-Length:")) found = true;
@@ -295,9 +428,8 @@ public class ChatClient {
 	public void stop(){  
 		try{   
 			if (output 			!= null)  output.close();
-			if (inStream 		!= null)  inStream.close();
 			if (clientSocket    != null)  clientSocket.close();
-			//if (writer			!= null) writer.close();
+			if (inStream 			!= null)  inStream.close();
 		}
 		catch(IOException ioe){ 
 			System.out.println("Error closing ...");
@@ -309,9 +441,6 @@ public class ChatClient {
 	 * 	MAIN 
 	 *******************************************************************************/
 
-	/**
-	 * @throws Exception 
-	 */
 	public static void main(String args[]) throws Exception{  
 		ChatClient chatClient = null;
 		URI uri = new URI(args[1]);
