@@ -30,18 +30,16 @@ public class ChatClient {
 	 * input: reads the response of the server
 	 * output: sends data through the socket to the server
 	 * writer: writes data to the file file.html so it is saved
-	 * //TODO private of public zetten
-
 	 * fos: writes data to a file
 	 * imageFile: writes data to the image file
 	 */
 
-	Socket clientSocket = null;
-	InputStreamReader inputStream = null;
-	InputStreamReader inputImage = null;
-	PrintWriter output = null;
-	FileOutputStream fos = null;
-	OutputStreamWriter imageFile = null;
+	private Socket clientSocket = null;
+	private InputStreamReader inputStream = null;
+	private InputStreamReader inputImage = null;
+	private PrintWriter output = null;
+	private FileOutputStream fos = null;
+	private OutputStreamWriter imageFile = null;
 
 
 	/*********************************************************************************
@@ -458,8 +456,9 @@ public class ChatClient {
 	 *******************************************************************************/
 
 	public static void main(String args[]) throws Exception{  
-		ChatClient chatClient = null;
 		URI uri = new URI(args[1]);
+		@SuppressWarnings("unused")
+		ChatClient chatClient = null;
 		try{
 			chatClient = new ChatClient(args[0],uri, Integer.parseInt(args[2]));
 		}
