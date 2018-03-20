@@ -96,7 +96,9 @@ class WorkerRunnable implements Runnable{
 			String HTTPversion = array[2];
 			String path = "";
 			String[] arrayURI = URI.split("/");
+			System.out.println(arrayURI);
 			if (arrayURI.length > 1) path = arrayURI[array.length - 1];
+			
 			String secondLine = inFromClient.readLine();
 			String[] array2 = secondLine.split(":");
 			if (!HTTPversion.equals("HTTP/1.1")) {
