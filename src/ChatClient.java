@@ -218,7 +218,7 @@ public class ChatClient {
 						System.out.println('\n' + "SOMETHING WENT WRONG");
 						break;
 					}
-					if(CONTENTLENGTH == 1000) break;
+					if(CONTENTLENGTH == 10000) break;
 				}
 			}
 			else{
@@ -305,6 +305,7 @@ public class ChatClient {
 						System.out.println('\n' + "SOMETHING WENT WRONG");
 						break;
 					}
+					if(CONTENTLENGTH == 10000) break;
 				}
 				else{
 					countContentLength++;
