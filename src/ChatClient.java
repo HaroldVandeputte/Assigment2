@@ -34,14 +34,13 @@ public class ChatClient {
 	 * clientSocket: a connection is made through the socket
 	 * inStream: reads the response of the server
 	 * output: sends data through the socket to the server
-<<<<<<< HEAD
 	 * writer: writes data to the file file.html so it is saved
-	 */ //TODO private of public zetten
-=======
+	 * //TODO private of public zetten
+
 	 * fos: writes data to a file
 	 * allImages: contains all sources of the images that the html file contains
 	 */
->>>>>>> Client
+
 	Socket clientSocket = null;
 	InputStream inStream = null;
 	InputStreamReader inImage = null;
@@ -332,14 +331,9 @@ public class ChatClient {
 	 * 	HELP FUNCTIONS
 	 ********************************************************************************/
 
-<<<<<<< HEAD
-	
-=======
-
 	/**
 	 * Gets the users input
 	 */
->>>>>>> Client
 	public String getUserInput() throws IOException{
 		BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
 		String input = "";
