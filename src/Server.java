@@ -12,7 +12,7 @@ import java.net.Socket;
 public class Server {
 
 	private static ServerSocket serverSocket = null;
-	private static String statusCode = "";
+	private static PrintWriter out = null;
 
 	/**
 	 * The main function starts the multithreaded server.
@@ -20,16 +20,20 @@ public class Server {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException {
-		openServerSocket(Integer.parseInt(args[0]));
+		int port = Integer.parseInt(args[0]);
+		openServerSocket(port);
 
 		while(true){
 			Socket clientSocket = null;
 			try {
 				clientSocket = serverSocket.accept();
 				System.out.println("Client accepted");
-				new Thread(new WorkerRunnable(clientSocket)).start();
+				new Thread(new WorkerRunnable(clientSocket, port)).start();
 			} catch (IOException e) {
-				statusCode = "500 Server Error";
+				out = new PrintWriter(clientSocket.getOutputStream());
+				out.println("HTTP/1.1 500 Server Error");
+				out.println('\r' + '\n' + '\r' + '\n');
+				out.flush();
 				e.printStackTrace();
 			}
 		}
@@ -42,8 +46,7 @@ public class Server {
 		try {
 			serverSocket = new ServerSocket(port);
 		} catch (IOException e) {
-			statusCode = "500 Server Error";
-			e.printStackTrace();
+			System.out.println("Server Error");
 		}
 	}
 }
@@ -59,6 +62,7 @@ class WorkerRunnable implements Runnable{
 	private Socket clientSocket = null;
 	private BufferedReader inFromClient;
 	private PrintWriter out = null;
+	private int port = 0;
 
 	/**
 	 * Save the client socket.
@@ -66,10 +70,11 @@ class WorkerRunnable implements Runnable{
 	 * 		|| socket to connect with client.
 	 * @throws IOException 
 	 */
-	public WorkerRunnable(Socket clientSocket) throws IOException{
+	public WorkerRunnable(Socket clientSocket, int port) throws IOException{
 		this.clientSocket = clientSocket;
 		inFromClient = new BufferedReader(new InputStreamReader (clientSocket.getInputStream()));;
 		out = new PrintWriter(clientSocket.getOutputStream());
+		this.port = port;
 
 	}
 
@@ -80,49 +85,69 @@ class WorkerRunnable implements Runnable{
 	@Override
 	public void run(){
 		System.out.println("run");
-		String clientSentence = "";
-		String http = "";
 		try {
-			clientSentence = inFromClient.readLine();
-			System.out.println("Received: " + clientSentence);
+			String firstLine = inFromClient.readLine();
+			System.out.println("Received: " + firstLine);
 
-			//clientSentence parsen:
-			int index = clientSentence.indexOf(" ");
-			String command = clientSentence.substring(0, index);
-			//System.out.println(command);
+			boolean badRequest = false;
+			String[] array = firstLine.split(" ");
+			String HTTPcommand = array[0];
+			String URI = array[1];
+			String HTTPversion = array[2];
+			String path = "";
+			String[] arrayURI = URI.split("/");
+			path = arrayURI[array.length - 1];
+			String secondLine = inFromClient.readLine();
+			String[] array2 = secondLine.split(":");
+			if (!HTTPversion.equals("HTTP/1.1")) {
+				badRequest = true;
+			}
+			if (!array2[0].equals("Host")) {
+				badRequest = true;
+			}
+			String Host = array2[1];
+			int portSend = Integer.parseInt(array2[2]);
+			if (!Host.equals("localhost")) {
+				badRequest = true;
+			}
+			if (portSend != port) {
+				badRequest = true;
+			}
 
-			//path parsen
-			String path;
-			int endindex = clientSentence.indexOf(" ", index+1);
-			path = clientSentence.substring(index+2,endindex);
+			if (badRequest) {
+				out.println("HTTP/1.1 400 Bad Request");
+				out.println('\r' + '\n' + '\r' + '\n');
+				out.flush();
+			}
+			else {
 
-			//Http
-			int indexSlash = clientSentence.lastIndexOf("/");
-			http = clientSentence.substring(indexSlash+1, clientSentence.length());
-			//System.out.println(http + "HTTTTTP");
+				switch(HTTPcommand){
+				//case "HEAD": HeadServer.head(clientSocket, inFromClient, out, path);
+				//break;
 
-			switch(command){
-			//case "HEAD": HeadServer.head(clientSocket, inFromClient, out, path, http);
-			//break;
+				case "GET": Get.get(clientSocket, inFromClient, out, path);
+				break;
 
-			case "GET": Get.get(clientSocket, inFromClient, out, path, http);
-			System.out.println("LIT");
-			break;
+				case "PUT": Put.put(inFromClient, path);
+				break;
 
-			//case "PUT": PutServer.put(inFromClient, path, http);
-			//break;
-
-			//case "POST": PostServer.post(inFromClient, path, http);
-			//break;
+				case "POST": Post.post(inFromClient, path);
+				break;
+				default: {
+					out.println("HTTP/1.1 501 Not Implemented");
+					out.println('\r' + '\n' + '\r' + '\n');
+					out.flush();
+				}
+				}
 			}
 
 		}catch (IOException e) {
 			e.printStackTrace();
 		}
 
-		
+
 		//run();
-		
+
 		//inFromClient.close();
 		//serverSocket.close();
 	}

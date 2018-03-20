@@ -373,7 +373,7 @@ public class ChatServer {
 		String dateGMT = df.format(date);
 		
 		//System.out.println(dateGMT);
-		String header = statusCode + '\n' + "Content-Type: text/html" + '\n' + "Content-Lenght: " + contentLength + '\n' + "Date: " + dateGMT.toString();
+		String header = statusCode + '\n' + "Content-Type: text/html" + '\n' + "Content-Length: " + contentLength + '\n' + "Date: " + dateGMT.toString();
 		
 		return header;
 	}

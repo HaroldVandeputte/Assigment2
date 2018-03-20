@@ -5,7 +5,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * This server class responds to the get request of the client. It retrieves the requested page.
@@ -23,66 +27,54 @@ public class Get {
 	 * 			The path of the file which has to be retrieved.
 	 * @throws IOException
 	 */
-	public static void get(Socket clientSocket, BufferedReader inFromClient, PrintWriter out, String path, String http) throws IOException{
+	public static void get(Socket clientSocket, BufferedReader inFromClient, PrintWriter out, String path) throws IOException{
 
-		String statusCode = "";
-		System.out.println("PATH:" + path);
-
-		//if path not specified, return index page.
 		if (path.isEmpty()){
-			path = "assignment2.html";
-			System.out.println("PathIsEmpty");
+			path = "index.html";
 		}
 
-		boolean noHeader = false;
-		//info client inlezen
-		String s;
-		while ((s = inFromClient.readLine()) != null) {
-			noHeader = true;
-			System.out.println(s);
-			if (s.isEmpty()) {
-				break;
-			}
-		}
-		
-		
-		if(noHeader == false && http == "1.0"){
-			out.println("HTTP/1.0 400 Bad Request");
-		}
+		//Date GMT
+		Date date = new Date();
+		Locale localeEN = Locale.ENGLISH;
+		DateFormat df = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", localeEN);
+		df.setTimeZone(TimeZone.getTimeZone("GMT"));
+		String dateGMT = df.format(date);
 
-		//file ophalen
-		Date today = new Date(); 
-		File file = null;
-		try{
-			file = new File(path);
-			BufferedReader htmlFile = new BufferedReader(new FileReader(file));
-			
-			statusCode = "200 OK";
+		String[] array = path.split(".");
+		String extension = array[array.length-1];
 
-			//headers doorsturen
-			out.println("HTTP/1.1 " +statusCode);
-			out.println("Content-Type: text/html");
-			out.println("Content-Length: "+file.length());
-			out.println("Date: "+today);
-			out.println("");
-			out.flush();	
-			
-			
-			//file uitlezen en doorsturen
-			String t;
-			while ((t = htmlFile.readLine()) != null) {
-				System.out.println(t);
-				out.println(t);
+		if (extension.equals("html")) {
+			try{
+				File file = null;
+				file = new File(path);
+				BufferedReader htmlFile = new BufferedReader(new FileReader(file));
+
+				//headers
+				out.println("HTTP/1.1 200 OK");
+				out.println("Content-Type: text/html");
+				out.println("Content-Length: "+file.length());
+				out.println("Date: "+ dateGMT);
+				out.println('\r' + '\n' + '\r' + '\n');
+				out.flush();	
+
+				//file uitlezen en doorsturen
+				String t;
+				while ((t = htmlFile.readLine()) != null) {
+					System.out.println(t);
+					out.println(t);
+					out.flush();
+				}
+				htmlFile.close();
+
+			}catch(Exception e){
+				//page not found
+				System.out.println("404");
+				out.println("HTTP/1.1 404 Not Found");
+				out.println('\r' + '\n' + '\r' + '\n');
 				out.flush();
 			}
-			
-		}catch(Exception e){
-			//page not found
-			statusCode = "404 Not Found";
-			System.out.println("404");
-			out.println("HTTP/1.1 " + statusCode);
-			out.println("");
-			out.flush();
 		}
+
+
 	}
 }
