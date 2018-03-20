@@ -3,6 +3,7 @@ import java.nio.charset.StandardCharsets;
 
 import java.util.*;
 import java.io.*;
+
 import org.jsoup.*;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -134,8 +135,6 @@ public class ChatClient {
 					String type = src.substring(indexType+1,src.length());
 					String newPath = pathImage + name; // form the correct path
 					String newRequest = getHTTP1Request("GET",newPath,hostServer,portNumber,"");// form the correct request
-					System.out.println('\n');
-					System.out.println(newRequest);
 					output.println(newRequest); // send request to server
 					downloadImage(imgNum,type); // download/save the image
 					imgNum ++;
@@ -174,17 +173,62 @@ public class ChatClient {
 		int byteRead = 0;
 		byte[] b = new byte[1024];
 		int count = -1;
+		boolean somethingWentWrong = false;
+		int countContentLength = 0;
+		Integer CONTENTLENGTH = 10000;
+		String	CONTENTSTRING = "";
+		boolean contentLengthFound = false;
+		byte[] contentString = new byte[16];
 		String str = "";
-		while((byteRead = inputStream.read()) != -1 ){
+		
+		boolean headerEnded = false;
+		byte[] headerCheck = new byte[4];
+		
+		while(countContentLength-1 <= CONTENTLENGTH ){
+			byteRead = inputStream.read();
+			contentString = addChar(contentString, byteRead);
+			if(count == 8 && byteRead!= 50 && !headerEnded){
+				somethingWentWrong = true;
+			}
+			if(contentLengthFound){
+				if(byteRead == 13){
+					contentLengthFound = false;
+					CONTENTLENGTH = Integer.parseInt(CONTENTSTRING);
+				}
+				else {
+					CONTENTSTRING += String.valueOf(byteRead-48);
+					countContentLength ++;
+				}
+			}
+			if((str = new String(contentString, StandardCharsets.UTF_8)).equals("Content-Length: ")){
+				contentLengthFound = true;
+			}
+			addChar(headerCheck,byteRead);
+			if(!headerEnded){
+				// This locates the end of the header by comparing the current byte as well as the next 3 bytes
+				// with the HTTP header end "\r\n\r\n" (which in integer representation would be 13 10 13 10).
+				// If the end of the header is reached, the flag is set to true and the remaining data in the
+				// currently buffered byte will be counted with the content length that has already been read.
+				if(headerCheck[0]==13 && headerCheck[1]==10 && headerCheck[2]==13 && headerCheck[3]==10){
+					headerEnded = true;
+					if(somethingWentWrong){
+						System.out.println('\n' + "SOMETHING WENT WRONG");
+						break;
+					}
+				}
+			}
+			else{
+				countContentLength++;
+			}
 			count++;
 			fos.write(byteRead);
-			if((count%1024) ==0){
+			if((count%1024) == 1023){
 				str = new String(b, StandardCharsets.UTF_8);
 				System.out.println(str);
 			}
 			b[count%1024] = (byte) byteRead;
 		}
-		b = Arrays.copyOfRange(b, 0, count +1);
+		b = Arrays.copyOfRange(b, 0, (count +1)%1024);
 		str = new String(b, StandardCharsets.UTF_8);
 		System.out.println(str);
 		// Close open connections made in this function
@@ -197,44 +241,54 @@ public class ChatClient {
 	}
 
 	public void downloadImage(int imageNum,String type) throws IOException{
+		String fileName = "image" + imageNum + "." + type;	
+		OutputStreamWriter imageFile = null;
 		/* Start new reader */
 		try{
 			inputStream = new InputStreamReader(clientSocket.getInputStream(),"ISO-8859-1");
-			
-		}catch(IOException ioe){  
-			System.out.println("Unexpected exception: " + ioe.getMessage());
-		}
-		
-		String fileName = "image" + imageNum + "." + type;	
-		OutputStreamWriter imageFile = null;
-		try {
 			imageFile = new OutputStreamWriter(new FileOutputStream(fileName),"ISO-8859-1");
 		}catch(IOException ioe){  
 			System.out.println("Unexpected exception: " + ioe.getMessage());
 		}
+		
 		/*
 		 * Retrieve the input in blocks of 1kb.
 		 * Print the response in the terminal
 		 * Save the response in the file : file.html
 		 */
-		int[] headerCheck = {0, 0, 0, 0};
-		int ch = 0;
+		String str = "";
+		boolean somethingWentWrong = false;
+		byte[] headerCheck = new byte[4];
 		boolean headerEnded = false;
+		int byteRead = 0;
+		int countContentLength = 0;
+		Integer CONTENTLENGTH = 10000;
+		String CONTENTSTRING = "";
+		boolean contentLengthFound = false;
+		byte[] contentString = new byte[16];
+		int count = 0;
 		/* Read the input of server and write to file.html */
 		try{
-			while(true){
-				/* Reads i bytes from the input stream and stores it 
-				 * into the buffer array b.
-				 */
-				ch = inputStream.read();
-				System.out.print(inputStream.ready());
-				if(ch == -1){ // return is -1 if the stream ended
-					break;
+			while(countContentLength <= CONTENTLENGTH ){
+				byteRead = inputStream.read();
+				contentString = addChar(contentString, byteRead);
+				if(count == 9 && byteRead!= 50 && !headerEnded){
+					somethingWentWrong = true;
 				}
-				for(int i = 1 ; i<4; i++){
-					headerCheck[i-1] = headerCheck[i];
+				if(contentLengthFound){
+					if(byteRead == 13){
+						contentLengthFound = false;
+						CONTENTLENGTH = Integer.parseInt(CONTENTSTRING);
+					}
+					else {
+						CONTENTSTRING += String.valueOf(byteRead-48);
+						countContentLength ++;
+					}
 				}
-				headerCheck[3] =  ch;
+				if((str = new String(contentString, StandardCharsets.UTF_8)).equals("Content-Length: ")){
+					contentLengthFound = true;
+				}
+				headerCheck = addChar(headerCheck,byteRead);
 				if(!headerEnded){
 					// This locates the end of the header by comparing the current byte as well as the next 3 bytes
 					// with the HTTP header end "\r\n\r\n" (which in integer representation would be 13 10 13 10).
@@ -242,12 +296,17 @@ public class ChatClient {
 					// currently buffered byte will be counted with the content length that has already been read.
 					if(headerCheck[0]==13 && headerCheck[1]==10 && headerCheck[2]==13 && headerCheck[3]==10){
 						headerEnded = true;
-						System.out.print('\n'+"check Header");
+					}
+					if(somethingWentWrong){
+						System.out.println('\n' + "SOMETHING WENT WRONG");
+						break;
 					}
 				}
 				else{
-					imageFile.write(ch);
+					countContentLength++;
+					imageFile.write(byteRead);
 				}
+				count++;
 			}
 		}catch(IOException exc){
 			System.out.println('\n'+ "Could not download the image." + "\n");
@@ -267,6 +326,13 @@ public class ChatClient {
 	 * 	HELP FUNCTIONS
 	 ********************************************************************************/
 
+	public byte[] addChar(byte[] byteArray, int byteRead){
+		for(int i= 1; i < byteArray.length; i++){
+			byteArray[i-1] = byteArray[i];
+		}
+		byteArray[byteArray.length-1] = (byte) byteRead;
+		return byteArray;
+	}
 
 	/**
 	 * Gets the users input
@@ -298,7 +364,8 @@ public class ChatClient {
 		// Content-Length = how many bytes the body contains
 		String contentLength = "Content-Length: ";
 		// Content-Type = type of the content
-		String contentType = "Content-Type: text/txt";
+		String contentType = "Content-Type: text/plain";
+		
 		methodLine =  method+ " " + path + " HTTP/1.1";
 		hostLine = "Host:" + host + ":" + portNumber;
 		// Form the request
