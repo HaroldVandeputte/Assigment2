@@ -2,7 +2,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 /**
  * This server class responds to the post request of the client. It listens to the given text and saves it in the specified file.
 
@@ -36,7 +35,7 @@ public class Post {
 				break;
 			}
 		}
-
-		
+		fw.close();
+		out.close();
 	}
 }
