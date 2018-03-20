@@ -331,8 +331,7 @@ public class ChatClient {
 	 * 	HELP FUNCTIONS
 	 ********************************************************************************/
 
-<<<<<<< HEAD
-=======
+
 	public byte[] addChar(byte[] byteArray, int byteRead){
 		for(int i= 1; i < byteArray.length; i++){
 			byteArray[i-1] = byteArray[i];
@@ -341,7 +340,7 @@ public class ChatClient {
 		return byteArray;
 	}
 
->>>>>>> Client
+
 	/**
 	 * Gets the users input
 	 */
