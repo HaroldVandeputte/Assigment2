@@ -25,7 +25,7 @@ public class ChatClient {
 	 * in: reads the response of the server
 	 * output: sends data through the socket to the server
 	 * writer: writes data to the file file.html so it is saved
-	 */
+	 */ //TODO private of public zetten
 	Socket clientSocket = null;
 	InputStream inStream = null;
 	//BufferedReader inBuf = null;
@@ -52,6 +52,7 @@ public class ChatClient {
 		 * in = BufferReader for this socket
 		 */
 		String hostServer = uri.getHost();
+		System.out.println(hostServer);
 		String path = uri.getPath();
 		int portNumber = port;
 		String HTTPMethod = HTTPcommand;
@@ -196,6 +197,7 @@ public class ChatClient {
 	 * 	HELP FUNCTIONS
 	 ********************************************************************************/
 
+	
 	public String getUserInput() throws IOException{
 		BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
 		String input = "";
