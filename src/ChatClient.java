@@ -1,11 +1,5 @@
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.awt.Image;
-import java.awt.image.*;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.FileImageOutputStream;
-import javax.imageio.stream.ImageOutputStream;
 
 import java.util.*;
 import java.io.*;
@@ -32,17 +26,17 @@ public class ChatClient {
 	 * Initialize variables for the connection
 	 * 
 	 * clientSocket: a connection is made through the socket
-	 * inStream: reads the response of the server
+	 * input: reads the response of the server
 	 * output: sends data through the socket to the server
 	 * fos: writes data to a file
-	 * allImages: contains all sources of the images that the html file contains
+	 * imageFile: writes data to the image file
 	 */
 	Socket clientSocket = null;
-	InputStream inStream = null;
-	InputStreamReader inImage = null;
+	InputStreamReader inputStream = null;
+	InputStreamReader inputImage = null;
 	PrintWriter output = null;
 	FileOutputStream fos = null;
-	List<String> allImages = new ArrayList<String>();
+	OutputStreamWriter imageFile = null;
 
 
 	/*********************************************************************************
@@ -77,6 +71,7 @@ public class ChatClient {
 
 			// 2 - Open an output stream to the socket.
 			output = new PrintWriter(clientSocket.getOutputStream(), true);
+
 		}catch(UnknownHostException uhe){
 			System.out.println("Host unknown: " + uhe.getMessage());
 		}
@@ -166,100 +161,53 @@ public class ChatClient {
 	 ********************************************************************************/
 
 	/**
-	 * Reads the response of the server and saves the response in a seperate file.
-	 * @param HTTPMethod:
-	 * 			Method used in the HTTP request
-	 * @param imageNum
-	 * 			== -1 if no images are asked
-	 * 			>=0 if it is a request for a images that should be saved in "img<imageNum>.<type>"
-	 * @param type
-	 * 		type is given if the request is for an image, otherwise type == ""
-	 * @throws IOException
+	 * Reads the response of the server and saves the response in a separate file.
 	 */
 	public void readResponse(String HTTPMethod) throws IOException{
 		/* Open all connection to read the response */
 		try{
 			fos = new FileOutputStream("file.html"); //file to store the data
-			inStream = clientSocket.getInputStream(); // start an InputStream
+			inputStream = new InputStreamReader(clientSocket.getInputStream(),"ISO-8859-1");
 		}catch(IOException ioe){  
 			System.out.println("Unexpected exception: " + ioe.getMessage());
 		}
-
-		/*
-		 * Retrieve the input in blocks of 1kb.
-		 * Print the response in the terminal
-		 * Save the response in the file : file.html
-		 */
-		byte[] b = new byte[1024]; // 1kb reading blocks.
-		int i = 0;
-		boolean next = true;
-		int contentLength = 0;// keeps up how much there has bean read
-		boolean headerEnded = false;
-		int CONTENTLENGTH = 0;// Will be the content length of the total body
-		/* Read the input of server and write to file.html */
-		try{
-			while(next){
-				/* Reads i bytes from the input stream and stores it 
-				 * into the buffer array b.
-				 */
-				i = inStream.read(b);
-				if(i == -1){ // return is -1 if the stream ended
-					break;
-				}
-				String str = new String(b, StandardCharsets.UTF_8);// transform to string
-				//System.out.print(str);
-				if(!headerEnded){
-					if((CONTENTLENGTH = getContentLength(str))==0){
-						System.out.println('\n' + "HTTP response does not contain Content-Length!");
-						break;
-					}
-					for (int k = 0; k < 1024; k++) {
-						// This locates the end of the header by comparing the current byte as well as the next 3 bytes
-						// with the HTTP header end "\r\n\r\n" (which in integer representation would be 13 10 13 10).
-						// If the end of the header is reached, the flag is set to true and the remaining data in the
-						// currently buffered byte will be counted with the content length that has already been read.
-						if (b[k] == 13 && b[k+ 1] == 10 && b[k + 2] == 13 && b[k + 3] == 10) {
-							headerEnded = true;
-							contentLength += i-k-3;
-							if(HTTPMethod.equals("HEAD")) next = false;
-							break;
-
-						}
-					}
-				}
-				else{
-					contentLength += i;
-					// If the last byte read is equal to 10 (or '\n') and the content length has
-					// been reached then the input stream has reached the end of the response.
-					// The flag 'next' is set to false to stop reading.
-					if(b[i-1]==10 && contentLength >= CONTENTLENGTH){
-						next = false;
-					}
-				}
-				fos.write(b, 0, i);
+		int byteRead = 0;
+		byte[] b = new byte[1024];
+		int count = -1;
+		String str = "";
+		while((byteRead = inputStream.read()) != -1 ){
+			count++;
+			fos.write(byteRead);
+			if((count%1024) ==0){
+				str = new String(b, StandardCharsets.UTF_8);
+				System.out.println(str);
 			}
-		}catch(IOException exc){
-			String str = new String(b, StandardCharsets.UTF_8);// transform to string
-			System.out.print(str);
-			fos.write(b, 0, i);
+			b[count%1024] = (byte) byteRead;
 		}
-
-		// Close all open connections made
+		b = Arrays.copyOfRange(b, 0, count +1);
+		str = new String(b, StandardCharsets.UTF_8);
+		System.out.println(str);
+		// Close open connections made in this function
 		try{
-			if (fos 				!= null)  fos.close();
-			//if (inStream 			!= null)  inStream.close();
+			if (fos 				!= null) fos.close();
 		}
 		catch(IOException ioe){ 
-			System.out.println("Error closing ...");
+			System.out.println("Error closing ..." + ioe.getMessage());
 		}
-
 	}
 
 	public void downloadImage(int imageNum,String type) throws IOException{
+		/* Start new reader */
+		try{
+			inputStream = new InputStreamReader(clientSocket.getInputStream(),"ISO-8859-1");
+			
+		}catch(IOException ioe){  
+			System.out.println("Unexpected exception: " + ioe.getMessage());
+		}
+		
 		String fileName = "image" + imageNum + "." + type;	
 		OutputStreamWriter imageFile = null;
 		try {
-			inImage = new InputStreamReader(clientSocket.getInputStream(),"ISO-8859-1");
 			imageFile = new OutputStreamWriter(new FileOutputStream(fileName),"ISO-8859-1");
 		}catch(IOException ioe){  
 			System.out.println("Unexpected exception: " + ioe.getMessage());
@@ -269,35 +217,30 @@ public class ChatClient {
 		 * Print the response in the terminal
 		 * Save the response in the file : file.html
 		 */
-		List<Integer> last4Readings = new ArrayList<Integer>();
-		for (int i = 0; i < 4; i++) {
-			last4Readings.add(0);
-		}
+		int[] headerCheck = {0, 0, 0, 0};
 		int ch = 0;
-		Integer integer = null;
-		boolean next = true;
 		boolean headerEnded = false;
 		/* Read the input of server and write to file.html */
 		try{
-			while(next){
+			while(true){
 				/* Reads i bytes from the input stream and stores it 
 				 * into the buffer array b.
 				 */
-				ch = inImage.read();
+				ch = inputStream.read();
+				System.out.print(inputStream.ready());
 				if(ch == -1){ // return is -1 if the stream ended
-					System.out.print('\n'+"quit");
 					break;
 				}
-				integer = new Integer(ch);
-				last4Readings.add(integer);
-				last4Readings.remove(0);
-
+				for(int i = 1 ; i<4; i++){
+					headerCheck[i-1] = headerCheck[i];
+				}
+				headerCheck[3] =  ch;
 				if(!headerEnded){
 					// This locates the end of the header by comparing the current byte as well as the next 3 bytes
 					// with the HTTP header end "\r\n\r\n" (which in integer representation would be 13 10 13 10).
 					// If the end of the header is reached, the flag is set to true and the remaining data in the
 					// currently buffered byte will be counted with the content length that has already been read.
-					if(last4Readings.get(0)==13 && last4Readings.get(1)==10 && last4Readings.get(2)==13 && last4Readings.get(3)==10){
+					if(headerCheck[0]==13 && headerCheck[1]==10 && headerCheck[2]==13 && headerCheck[3]==10){
 						headerEnded = true;
 						System.out.print('\n'+"check Header");
 					}
@@ -312,9 +255,7 @@ public class ChatClient {
 
 		// Close all open connections made
 		try{
-			if (inImage 				!= null) inImage.close();
 			if (imageFile 				!= null) imageFile.close();
-
 		}
 		catch(IOException ioe){ 
 			System.out.println("Error closing ...");
@@ -428,8 +369,9 @@ public class ChatClient {
 	public void stop(){  
 		try{   
 			if (output 			!= null)  output.close();
+			if (inputStream 	!= null) inputStream.close();
+			if (inputImage 		!= null) inputImage.close();
 			if (clientSocket    != null)  clientSocket.close();
-			if (inStream 			!= null)  inStream.close();
 		}
 		catch(IOException ioe){ 
 			System.out.println("Error closing ...");
