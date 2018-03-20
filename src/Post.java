@@ -27,7 +27,7 @@ public class Post {
 		//info client uitlezen
 		String s;
 		FileWriter fw = new FileWriter(path, true);
-		BufferedWriter out = BufferedWriter(fw);
+		BufferedWriter out = new BufferedWriter(fw);
 		
 		while ((s = inFromClient.readLine()) != null) {
 			System.out.println(s);
