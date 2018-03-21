@@ -219,6 +219,7 @@ public class ChatClient {
 						break;
 					}
 					if(CONTENTLENGTH == 10000) break;
+					if(!HTTPMethod.equals("GET")) break;
 				}
 			}
 			else{
