@@ -121,26 +121,32 @@ public class ChatClient {
 				String pathImage = changePathForImage(path);
 				int imgNum = 0;
 				/* If there are images then send a separate request for them again */
-				for (Element el : img) {
-					String src = el.absUrl("src");// http://host/path
+				if (img.size() > 0) {
 
-					//Extract the name of the image from the src attribute
-					int indexName = src.lastIndexOf("/");
-					if (indexName == src.length()) {
-						src = src.substring(0, indexName);
+
+					for (Element el : img) {
+						String src = el.absUrl("src");// http://host/path
+
+						//Extract the name of the image from the src attribute
+						int indexName = src.lastIndexOf("/");
+						if (indexName == src.length()) {
+							src = src.substring(0, indexName);
+						}
+						indexName = src.lastIndexOf("/");
+						String name = src.substring(indexName, src.length());
+						int indexType = src.lastIndexOf(".");
+						String type = src.substring(indexType+1,src.length());
+						String newPath = pathImage + name; // form the correct path
+
+						String newRequest = getHTTP1Request("GET",newPath,hostServer,portNumber,"");// form the correct request
+						output.println(newRequest); // send request to server
+						downloadImage(imgNum,name.substring(1,name.length())); // download/save the image
+
+						imgNum ++;
 					}
-					indexName = src.lastIndexOf("/");
-					String name = src.substring(indexName, src.length());
-					int indexType = src.lastIndexOf(".");
-					String type = src.substring(indexType+1,src.length());
-					String newPath = pathImage + name; // form the correct path
-					String newRequest = getHTTP1Request("GET",newPath,hostServer,portNumber,"");// form the correct request
-					output.println(newRequest); // send request to server
-					downloadImage(imgNum,type); // download/save the image
-					imgNum ++;
 				}
 			} catch (IOException ex) {
-				System.err.println("There was an error");
+				//System.err.println("There was an error");
 			}
 
 		}
@@ -180,10 +186,10 @@ public class ChatClient {
 		boolean contentLengthFound = false;
 		byte[] contentString = new byte[16];
 		String str = "";
-		
+
 		boolean headerEnded = false;
 		byte[] headerCheck = new byte[4];
-		
+
 		while(countContentLength-1 <= CONTENTLENGTH ){
 			byteRead = inputStream.read();
 			contentString = addChar(contentString, byteRead);
@@ -215,6 +221,9 @@ public class ChatClient {
 						System.out.println('\n' + "SOMETHING WENT WRONG");
 						break;
 					}
+					if (!HTTPMethod.equals("GET")) {
+						break;
+					}
 				}
 			}
 			else{
@@ -240,17 +249,18 @@ public class ChatClient {
 		}
 	}
 
-	public void downloadImage(int imageNum,String type) throws IOException{
-		String fileName = "image" + imageNum + "." + type;	
+	public void downloadImage(int imageNum,String name) throws IOException{
+		String fileName = name;
+		File file = new File(fileName);
 		OutputStreamWriter imageFile = null;
 		/* Start new reader */
 		try{
 			inputStream = new InputStreamReader(clientSocket.getInputStream(),"ISO-8859-1");
-			imageFile = new OutputStreamWriter(new FileOutputStream(fileName),"ISO-8859-1");
+			imageFile = new OutputStreamWriter(new FileOutputStream(file),"ISO-8859-1");
 		}catch(IOException ioe){  
 			System.out.println("Unexpected exception: " + ioe.getMessage());
 		}
-		
+
 		/*
 		 * Retrieve the input in blocks of 1kb.
 		 * Print the response in the terminal
@@ -365,7 +375,7 @@ public class ChatClient {
 		String contentLength = "Content-Length: ";
 		// Content-Type = type of the content
 		String contentType = "Content-Type: text/plain";
-		
+
 		methodLine =  method+ " " + path + " HTTP/1.1";
 		hostLine = "Host:" + host + ":" + portNumber;
 		// Form the request
