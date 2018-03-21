@@ -72,7 +72,7 @@ class WorkerRunnable implements Runnable{
 	 */
 	public WorkerRunnable(Socket clientSocket, int port) throws IOException{
 		this.clientSocket = clientSocket;
-		inFromClient = new BufferedReader(new InputStreamReader (clientSocket.getInputStream()));;
+		inFromClient = new BufferedReader(new InputStreamReader (clientSocket.getInputStream()));
 		out = new PrintWriter(clientSocket.getOutputStream());
 		this.port = port;
 
@@ -95,27 +95,18 @@ class WorkerRunnable implements Runnable{
 			String URI = array[1];
 			String HTTPversion = array[2];
 			String path = "";
-			String[] arrayURI = URI.split("/");
-			System.out.println(arrayURI);
-			if (arrayURI.length > 1) path = arrayURI[array.length - 1];
+			
+			int indexSlash = URI.lastIndexOf("/");
+			System.out.println(indexSlash);
+			path = URI.substring(indexSlash+1, URI.length());
+
 			
 			String secondLine = inFromClient.readLine();
-			String[] array2 = secondLine.split(":");
 			if (!HTTPversion.equals("HTTP/1.1")) {
 				badRequest = true;
 			}
-			if (!array2[0].equals("Host")) {
-				badRequest = true;
-			}
-			String Host = array2[1];
-			int portSend = Integer.parseInt(array2[2]);
-			if (!Host.equals("localhost")) {
-				badRequest = true;
-			}
-			if (portSend != port) {
-				badRequest = true;
-			}
-
+			
+			
 			if (badRequest) {
 				out.println("HTTP/1.1 400 Bad Request");
 				out.println('\r' + '\n' + '\r' + '\n');
@@ -124,16 +115,33 @@ class WorkerRunnable implements Runnable{
 			else {
 
 				switch(HTTPcommand){
-				//case "HEAD": HeadServer.head(clientSocket, inFromClient, out, path);
-				//break;
-
-				case "GET": Get.get(clientSocket, inFromClient, out, path);
+				case "HEAD": Head.head(clientSocket, inFromClient, out, path);
 				break;
 
-				case "PUT": Put.put(inFromClient, path);
+				case "GET":  Get.get(clientSocket, inFromClient, out, path);
 				break;
 
-				case "POST": Post.post(inFromClient, path);
+				case "PUT": {
+					out.println("HTTP/1.1 200 OK");
+					out.println('\r' + '\n' + '\r' + '\n');
+					out.flush();
+					String Line3 = inFromClient.readLine();
+					String Line4 = inFromClient.readLine();
+					String Line5 = inFromClient.readLine();
+					Put.put(inFromClient, path);
+				}
+				break;
+
+				case "POST": {
+					out.println("HTTP/1.1 200 OK");
+					out.println('\r' + '\n' + '\r' + '\n');
+					out.flush();
+					String Line3 = inFromClient.readLine();
+					String Line4 = inFromClient.readLine();
+					String Line5 = inFromClient.readLine();
+					Post.post(inFromClient, path);
+					
+				}
 				break;
 				default: {
 					out.println("HTTP/1.1 501 Not Implemented");

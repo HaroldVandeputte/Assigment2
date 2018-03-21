@@ -35,6 +35,7 @@ public class Post {
 				break;
 			}
 		}
+		
 		fw.close();
 		out.close();
 	}
