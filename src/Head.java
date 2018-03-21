@@ -25,7 +25,7 @@ public class Head {
 	 * 			The path of the file which has to be retrieved.
 	 * @throws IOException
 	 */
-	public static void head(Socket clientSocket, BufferedReader inFromClient, PrintWriter out, String path, String http) throws IOException{
+	public static void head(Socket clientSocket, BufferedReader inFromClient, PrintWriter out, String path) throws IOException{
 
 		String statusCode = "";
 
@@ -42,8 +42,8 @@ public class Head {
 		df.setTimeZone(TimeZone.getTimeZone("GMT"));
 		String dateGMT = df.format(date);
 
-		String[] array = path.split(".");
-		String extension = array[array.length-1];
+		int indexPoint = path.lastIndexOf(".");
+		String extension = path.substring(indexPoint+1, path.length());
 
 		if (extension.equals("html")) {
 			try{

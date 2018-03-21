@@ -190,6 +190,7 @@ public class ChatClient {
 		byte[] headerCheck = new byte[4];
 		
 		while(countContentLength-1 <= CONTENTLENGTH ){
+			System.out.println("teller: " + countContentLength);
 			byteRead = inputStream.read();
 			contentString = addChar(contentString, byteRead);
 			if(count == 8 && byteRead!= 50 && !headerEnded){
