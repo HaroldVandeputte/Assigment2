@@ -218,8 +218,10 @@ public class ChatClient {
 						System.out.println('\n' + "SOMETHING WENT WRONG");
 						break;
 					}
+					if(!HTTPMethod.equals("GET")) {
+						break;
+					}
 					if(CONTENTLENGTH == 10000) break;
-					if(!HTTPMethod.equals("GET")) break;
 				}
 			}
 			else{
