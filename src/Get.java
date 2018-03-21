@@ -57,7 +57,7 @@ public class Get {
 				//headers
 				out.println("HTTP/1.1 200 OK");
 				out.println("Content-Type: text/html");
-				out.println("Content-Length: " + (file.length()));
+				out.println("Content-Length: " + (file.length() - 19));
 				out.println("Date: "+ dateGMT);
 				out.println('\r' + '\n' + '\r' + '\n');
 				out.flush();	
@@ -71,7 +71,6 @@ public class Get {
 				htmlFile.close();
 
 			}catch(Exception e){
-				//page not found
 				System.out.println("404");
 				out.println("HTTP/1.1 404 Not Found");
 				out.println('\r' + '\n' + '\r' + '\n');

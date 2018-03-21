@@ -27,7 +27,6 @@ public class Head {
 	 */
 	public static void head(Socket clientSocket, BufferedReader inFromClient, PrintWriter out, String path) throws IOException{
 
-		String statusCode = "";
 
 		//if path not specified, return index page.
 		if (path.isEmpty()){
@@ -54,7 +53,7 @@ public class Head {
 				//headers
 				out.println("HTTP/1.1 200 OK");
 				out.println("Content-Type: text/html");
-				out.println("Content-Length: "+file.length());
+				out.println("Content-Length: "+(file.length() - 19));
 				out.println("Date: "+ dateGMT);
 				out.println('\r' + '\n' + '\r' + '\n');
 				out.flush();
